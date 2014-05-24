@@ -1,0 +1,42 @@
+option java_package = "com.sgzmd.jffnet.proto";
+
+enum Rating {
+  K = 1;
+  K_PLUS = 2;
+  T = 3;
+  M = 4;
+  NC_17 = 5;
+};
+
+enum Status {
+  WIP = 1;
+  COMPLETED = 2;
+  ABANDONED = 3;
+}
+
+message StoryInfo {
+  required string title = 1;
+  repeated string author = 2;
+  optional string description = 3;
+  optional string url = 4;
+  optional Rating rating = 5;
+  repeated string genre = 6;
+  repeated string character = 7;
+  optional int32 reviews = 8;
+  optional int32 favs = 9;
+  optional int64 published_date = 10;
+  optional int64 updated_date = 11;
+  optional Status status = 12;
+  optional string language = 13;
+}
+
+message Chapter {
+  required string title = 1;
+  optional string text = 2;
+  optional string url = 3;
+}
+
+message Story {
+  required StoryInfo info = 1;
+  repeated Chapter chapter = 2;
+}
