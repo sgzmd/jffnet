@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='utf-8'?>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <title>${info.title}</title>
+</head>
+<body>
+<div>
+    <h1>${info.title}</h1>
+    <h2>by ${foreach info.authorList author , }${author}${end}</h2>
+
+    <div class="story_info">
+        ${info.description}
+    </div>
+</div>
+</body>
+</html>

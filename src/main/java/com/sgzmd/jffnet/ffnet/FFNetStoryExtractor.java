@@ -1,4 +1,4 @@
-package com.sgzmd.jffnet;
+package com.sgzmd.jffnet.ffnet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -6,6 +6,8 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.inject.Inject;
 import com.google.inject.internal.util.ImmutableMap;
+import com.sgzmd.jffnet.ChapterUrl;
+import com.sgzmd.jffnet.UrlContentFetcher;
 import com.sgzmd.jffnet.proto.Jffnet;
 import org.apache.commons.lang.StringEscapeUtils;
 import org.joda.time.DateTime;
@@ -26,12 +28,23 @@ import java.util.regex.Pattern;
 
 public class FFNetStoryExtractor {
   private static final Logger LOG = Logger.getLogger(FFNetStoryExtractor.class.getName());
+
   private static final String BASE_URL = "https://www.fanfiction.net";
 
   private static final String AUTHOR_XPATH = "div[id*=profile_top]>a[href^=/u]";
   private static final String STORY_TITLE_XPATH = "div[id*=profile_top]>b";
   private static final String STORY_DESCRIPTION_XPATH = "div[id*=profile_top]>div";
   private static final String CHAPTER_SELECTOR_XPATH = "select[id*=chap_select]";
+
+  private static final Pattern ONCHANGE_PATTERN = Pattern.compile("self.location = '(/s/[0-9]+/)'.+\\+ '(/.+)';");
+  private static final DateTimeFormatter DATE_PARSER = DateTimeFormat.forPattern("MM/dd/YYYY");
+
+  private static final int INDEX_RATING = 0;
+  private static final int INDEX_LANGUAGE = 1;
+  private static final int INDEX_GENRE = 2;
+  private static final int INDEX_CHARACTER = 3;
+  private static final int INDEX_REVIEWS = 6;
+  private static final int INDEX_FAVS = 7;
 
   private static final ImmutableMap<String, Jffnet.Rating> RATINGS_MAP = ImmutableMap.of(
       "Fiction K",
@@ -50,17 +63,6 @@ public class FFNetStoryExtractor {
       return input.trim();
     }
   };
-
-  private static final int INDEX_RATING = 0;
-  private static final int INDEX_LANGUAGE = 1;
-  private static final int INDEX_GENRE = 2;
-  private static final int INDEX_CHARACTER = 3;
-  private static final int INDEX_REVIEWS = 6;
-  private static final int INDEX_FAVS = 7;
-
-  private static final Pattern ONCHANGE_PATTERN = Pattern.compile("self.location = '(/s/[0-9]+/)'.+\\+ '(/.+)';");
-
-  @VisibleForTesting static final DateTimeFormatter DATE_PARSER = DateTimeFormat.forPattern("MM/dd/YYYY");
 
   private final UrlContentFetcher urlFetcher;
 
@@ -151,12 +153,12 @@ public class FFNetStoryExtractor {
     return Integer.parseInt(values[idx].split(":")[1].replace(",", "").trim());
   }
 
-  @VisibleForTesting Jffnet.StoryInfo extractStoryMetadata(String story) throws IOException {
+  @VisibleForTesting public Jffnet.StoryInfo extractStoryMetadata(String story) throws IOException {
     Document doc = Jsoup.parse(urlFetcher.fetchUrl(story));
     return extractStoryMetadata(doc);
   }
 
-  @VisibleForTesting Jffnet.StoryInfo extractStoryMetadata(Document doc) {
+  @VisibleForTesting public Jffnet.StoryInfo extractStoryMetadata(Document doc) {
     Jffnet.StoryInfo.Builder builder = Jffnet.StoryInfo.newBuilder();
 
     String author = doc.select(AUTHOR_XPATH).first().text();

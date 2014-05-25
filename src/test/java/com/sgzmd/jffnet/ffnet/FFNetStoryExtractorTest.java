@@ -1,12 +1,12 @@
-package com.sgzmd.jffnet;
+package com.sgzmd.jffnet.ffnet;
 
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Resources;
-import com.google.protobuf.RpcCallback;
-import com.google.protobuf.RpcController;
-import com.sgzmd.jffnet.com.sgzmd.jffnet.testing.FakeUrlContentFetcher;
+import com.sgzmd.jffnet.ChapterUrl;
 import com.sgzmd.jffnet.proto.Jffnet;
+import com.sgzmd.jffnet.testing.FakeUrlContentFetcher;
+import com.sgzmd.jffnet.testing.TestUtils;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
@@ -18,15 +18,12 @@ import org.jsoup.select.Elements;
 import org.junit.Before;
 import org.junit.Test;
 
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 import static org.truth0.Truth.ASSERT;
 
 public class FFNetStoryExtractorTest {
-  public static final String URL1 = "https://www.fanfiction.net/s/3384712/1/The-Lie-I-ve-Lived";
-  public static final String URL2 = "https://www.fanfiction.net/s/2680093/1/Circular-Reasoning";
 
   public static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormat.forPattern("YYYY/MM/dd");
   private FakeUrlContentFetcher urlFetcher;
@@ -61,18 +58,18 @@ public class FFNetStoryExtractorTest {
 
   @Before public void setUp() throws IOException {
     this.urlFetcher = new FakeUrlContentFetcher(
-        URL1, Resources.toString(Resources.getResource("test.html"), StandardCharsets.UTF_8),
-        URL2, Resources.toString(Resources.getResource("test2.html"), StandardCharsets.UTF_8));
+        TestUtils.URL1, Resources.toString(Resources.getResource("test.html"), StandardCharsets.UTF_8),
+        TestUtils.URL2, Resources.toString(Resources.getResource("test2.html"), StandardCharsets.UTF_8));
 
-    this.storyExtractor = new FFNetStoryExtractor(urlFetcher);
+    this.storyExtractor = TestUtils.getFfNetExtractor();
   }
 
   @Test public void fetchUrlSmokeTest() throws IOException {
-    ASSERT.that(urlFetcher.fetchUrl(URL1)).isNotNull();
+    ASSERT.that(urlFetcher.fetchUrl(TestUtils.URL1)).isNotNull();
   }
 
   @Test public void testSomething() throws IOException {
-    Document doc = Jsoup.parse(urlFetcher.fetchUrl(URL1));
+    Document doc = Jsoup.parse(urlFetcher.fetchUrl(TestUtils.URL1));
     Elements els = doc.select("div[id*=profile_top] > a[1]");
     for (Element el : els) {
       System.err.println(el.toString());
@@ -80,7 +77,7 @@ public class FFNetStoryExtractorTest {
   }
 
   @Test public void testExtractStoryInfo() throws IOException {
-    Jffnet.StoryInfo storyInfo = storyExtractor.extractStoryMetadata(URL1);
+    Jffnet.StoryInfo storyInfo = storyExtractor.extractStoryMetadata(TestUtils.URL1);
     ASSERT.that(storyInfo.getAuthorList()).has().exactly("jbern");
     ASSERT.that(storyInfo.getDescription()).is("Not all of James died that night. Not all of Harry lived. " +
         "The Triwizard Tournament as it should have been and a hero discovering who he really wants to be.");
@@ -88,7 +85,7 @@ public class FFNetStoryExtractorTest {
   }
 
   @Test public void testExtractAnotherStoryInfo() throws IOException {
-    Jffnet.StoryInfo storyInfo = storyExtractor.extractStoryMetadata(URL2);
+    Jffnet.StoryInfo storyInfo = storyExtractor.extractStoryMetadata(TestUtils.URL2);
     ASSERT.that(storyInfo.getTitle()).is("Circular Reasoning");
     ASSERT.that(storyInfo.getAuthorList()).has().exactly("Swimdraconian");
     ASSERT.that(storyInfo.hasUpdatedDate()).isFalse();
@@ -121,7 +118,7 @@ public class FFNetStoryExtractorTest {
   }
 
   @Test public void testExtractChapters() throws IOException {
-    Document doc = Jsoup.parse(urlFetcher.fetchUrl(URL1));
+    Document doc = Jsoup.parse(urlFetcher.fetchUrl(TestUtils.URL1));
     Iterable<ChapterUrl> chapters = storyExtractor.extractChapters(doc);
 
     ASSERT.that(Iterables.transform(chapters, new Function<ChapterUrl, String>() {
@@ -133,6 +130,6 @@ public class FFNetStoryExtractorTest {
 
     ASSERT
         .that(Iterables.getFirst(chapters, null).url())
-        .is("http://www.fanfiction.net/s/3384712/1/The-Lie-I-ve-Lived");
+        .is("https://www.fanfiction.net/s/3384712/1/The-Lie-I-ve-Lived");
   }
 }

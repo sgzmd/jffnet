@@ -1,4 +1,4 @@
-package com.sgzmd.jffnet.com.sgzmd.jffnet.testing;
+package com.sgzmd.jffnet.testing;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
