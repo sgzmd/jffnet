@@ -9,6 +9,7 @@ import com.sgzmd.jffnet.testing.FakeUrlContentFetcher;
 import com.sgzmd.jffnet.testing.TestUtils;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.joda.time.LocalDate;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.jsoup.Jsoup;
@@ -20,6 +21,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.text.ParseException;
 
 import static org.truth0.Truth.ASSERT;
 
@@ -88,7 +90,7 @@ public class FFNetStoryExtractorTest {
     Jffnet.StoryInfo storyInfo = storyExtractor.extractStoryMetadata(TestUtils.URL2);
     ASSERT.that(storyInfo.getTitle()).is("Circular Reasoning");
     ASSERT.that(storyInfo.getAuthorList()).has().exactly("Swimdraconian");
-    ASSERT.that(storyInfo.hasUpdatedDate()).isFalse();
+    ASSERT.that(storyInfo.hasUpdatedDate()).isTrue();
     ASSERT.that(storyInfo.getStatus()).is(Jffnet.Status.WIP);
   }
 
@@ -131,5 +133,9 @@ public class FFNetStoryExtractorTest {
     ASSERT
         .that(Iterables.getFirst(chapters, null).url())
         .is("https://www.fanfiction.net/s/3384712/1/The-Lie-I-ve-Lived");
+  }
+
+  @Test public void testGetDate() throws ParseException {
+    ASSERT.that(new LocalDate(2011, 5, 15)).isEqualTo(FFNetStoryExtractor.parseDate("05/15/2011"));
   }
 }

@@ -6,13 +6,15 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.inject.Inject;
+import com.joestelmach.natty.DateGroup;
+import com.joestelmach.natty.Parser;
 import com.sgzmd.jffnet.ChapterUrl;
 import com.sgzmd.jffnet.Progress;
 import com.sgzmd.jffnet.UrlContentFetcher;
 import com.sgzmd.jffnet.proto.Jffnet;
 import org.apache.commons.lang.StringEscapeUtils;
-import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.joda.time.LocalDate;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.jsoup.Jsoup;
@@ -21,6 +23,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -130,18 +133,18 @@ public class FFNetStoryExtractor {
       String value = values[i].toLowerCase().trim();
       if (value.startsWith("updated")) {
         try {
-          DateTime dateTime = getDateTime(value);
+          LocalDate dateTime = getDateTime(value);
           if (dateTime.getYear() > 1991) {
-            builder.setUpdatedDate(dateTime.getMillis());
+            builder.setUpdatedDate(dateTime.toDateTimeAtStartOfDay(DateTimeZone.UTC).getMillis());
           }
         } catch (Throwable e) {
           LOG.log(Level.WARNING, "Problem parsing updated date <" + value + ">", e);
         }
       } else if (value.startsWith("published")) {
         try {
-          DateTime dateTime = getDateTime(value);
+          LocalDate dateTime = getDateTime(value);
           if (dateTime.getYear() > 1991) {
-            builder.setPublishedDate(dateTime.getMillis());
+            builder.setPublishedDate(dateTime.toDateTimeAtStartOfDay(DateTimeZone.UTC).getMillis());
           }
         } catch (Throwable e) {
           LOG.log(Level.WARNING, "Problem parsing published date <" + value + ">", e);
@@ -152,8 +155,19 @@ public class FFNetStoryExtractor {
     }
   }
 
-  @VisibleForTesting DateTime getDateTime(String value) {
-    return DATE_PARSER.parseLocalDate(value.split(":")[1].trim()).toDateTimeAtStartOfDay(DateTimeZone.UTC);
+  @VisibleForTesting static LocalDate parseDate(String str) {
+    Parser parser = new Parser();
+    List<DateGroup> dateGroups = parser.parse(str);
+    for (DateGroup dg : dateGroups) {
+      return new LocalDate(Iterables.getFirst(dg.getDates(), null).getTime());
+    }
+
+    return null;
+  }
+
+  @VisibleForTesting LocalDate getDateTime(String value) {
+    String text = value.split(":")[1].trim();
+    return parseDate(text);
   }
 
   @VisibleForTesting int extractNumericValue(String[] values, int idx) {
