@@ -2,6 +2,7 @@ package com.sgzmd.jffnet.testing;
 
 import com.google.common.base.Throwables;
 import com.google.common.io.Resources;
+import com.sgzmd.jffnet.Progress;
 import com.sgzmd.jffnet.UrlContentFetcher;
 import com.sgzmd.jffnet.ffnet.FFNetStoryExtractor;
 
@@ -19,7 +20,27 @@ public class TestUtils {
       URL_FETCHER = new FakeUrlContentFetcher(
           URL1, Resources.toString(Resources.getResource("test.html"), StandardCharsets.UTF_8),
           URL2, Resources.toString(Resources.getResource("test2.html"), StandardCharsets.UTF_8));
-      FFNET_EXTRACTOR = new FFNetStoryExtractor(URL_FETCHER);
+      FFNET_EXTRACTOR = new FFNetStoryExtractor(URL_FETCHER, new Progress() {
+        @Override
+        public int getProgressMax() {
+          return 0;
+        }
+
+        @Override
+        public void setProgressMax(int progressMax) {
+
+        }
+
+        @Override
+        public void step() {
+
+        }
+
+        @Override
+        public int getProgress() {
+          return 0;
+        }
+      });
 
     } catch (IOException e) {
       throw Throwables.propagate(e);

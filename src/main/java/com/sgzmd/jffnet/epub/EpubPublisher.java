@@ -17,32 +17,6 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.logging.Logger;
 
-//    Book book = new Book();
-//    Metadata metadata = new Metadata();
-//    metadata.addTitle("My Sample Epub");
-//    metadata.addAuthor(new Author("Me, myself and I"));
-//
-//    book.setMetadata(metadata);
-//
-//
-//    HtmlFetcher fetcher = new HtmlFetcher();
-//    int resId = 0;
-//    for (String s : urls) {
-//      LOG.info(s);
-//      Elements select = Jsoup.connect(s).get().select("div.storytext");
-//
-//      Element el = select.first();
-//      while ((el = el.nextElementSibling()) != null) {
-//        for (Attribute attr : el.attributes().asList()) {
-//          el.attributes().remove(attr.getKey());
-//        }
-//      }
-//
-//      String html = HTML_PREFIX + select.outerHtml() + "</body></html>";
-//
-//      book.addSection(s, new Resource(StringEscapeUtils.unescapeHtml(html).getBytes(), MediatypeService.XHTML));
-
-
 public class EpubPublisher {
   private static final Logger LOG = Logger.getLogger(EpubPublisher.class.getName());
   private static final ThreadLocal<Engine> ENGINE = new ThreadLocal<Engine>() {

@@ -3,10 +3,11 @@ package com.sgzmd.jffnet.ffnet;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.inject.Inject;
-import com.google.inject.internal.util.ImmutableMap;
 import com.sgzmd.jffnet.ChapterUrl;
+import com.sgzmd.jffnet.Progress;
 import com.sgzmd.jffnet.UrlContentFetcher;
 import com.sgzmd.jffnet.proto.Jffnet;
 import org.apache.commons.lang.StringEscapeUtils;
@@ -65,9 +66,11 @@ public class FFNetStoryExtractor {
   };
 
   private final UrlContentFetcher urlFetcher;
+  private final Progress progress;
 
-  @Inject public FFNetStoryExtractor(UrlContentFetcher urlFetcher) {
+  @Inject public FFNetStoryExtractor(UrlContentFetcher urlFetcher, Progress progress) {
     this.urlFetcher = urlFetcher;
+    this.progress = progress;
   }
 
   public Jffnet.Story getStory(String storyUrl) throws IOException {
@@ -79,6 +82,8 @@ public class FFNetStoryExtractor {
     storyBuilder.setInfo(this.extractStoryMetadata(doc));
     Iterable<ChapterUrl> chapterUrls = extractChapters(doc);
 
+    progress.setProgressMax(Iterables.size(chapterUrls));
+
     for (ChapterUrl url : chapterUrls) {
       LOG.info("Reading chapter '" + url.chapter() + "' (" + url.url() + ")" );
       String chapterHtml = urlFetcher.fetchUrl(url.url());
@@ -87,6 +92,8 @@ public class FFNetStoryExtractor {
           .setTitle(url.chapter())
           .setUrl(url.url())
           .setText(StringEscapeUtils.unescapeHtml(div.html()));
+
+      progress.step();
     }
 
     return storyBuilder.build();
