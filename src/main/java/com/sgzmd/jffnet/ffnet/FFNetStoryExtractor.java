@@ -1,8 +1,8 @@
 package com.sgzmd.jffnet.ffnet;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
-import com.google.common.base.Splitter;
+import com.google.common.base.*;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.inject.Inject;
@@ -50,6 +50,8 @@ public class FFNetStoryExtractor {
   private static final int INDEX_REVIEWS = 6;
   private static final int INDEX_FAVS = 7;
 
+
+
   private static final ImmutableMap<String, Jffnet.Rating> RATINGS_MAP = ImmutableMap.of(
       "Fiction K",
       Jffnet.Rating.K,
@@ -60,6 +62,151 @@ public class FFNetStoryExtractor {
       "Fiction M",
       Jffnet.Rating.M
   );
+
+  private static class MetaParser {
+    public static final Predicate<String> KVP_PREDICATE = new Predicate<String>() {
+      @Override
+      public boolean apply(String input) {
+        return isKvpLine(input);
+      }
+    };
+
+    private final Iterable<String> kvpLines;
+    private final ImmutableList<String> nonKvpLines;
+
+    MetaParser(String[] values) {
+      ImmutableList<String> list = ImmutableList.copyOf(values);
+
+      // Partitioning meta into KVP and non-KVP lines
+      this.kvpLines = Iterables.filter(list, KVP_PREDICATE);
+      this.nonKvpLines = ImmutableList.copyOf(Iterables.filter(list, Predicates.not(KVP_PREDICATE)));
+    }
+
+    private static boolean isKvpLine(String line) {
+      return line.indexOf(':') > 0;
+    }
+
+    private Optional<String> findStringByPrefix(final String prefix) {
+      return Iterables.tryFind(kvpLines, new Predicate<String>() {
+        @Override
+        public boolean apply(String input) {
+          return input.trim().toLowerCase().startsWith(prefix.toLowerCase());
+        }
+      });
+    }
+
+    private Optional<String> getValue(Optional<String> metaLineOptional) {
+      if (!metaLineOptional.isPresent()) {
+        return Optional.absent();
+      }
+
+      String metaLine = metaLineOptional.get();
+      if (metaLine.contains(":")) {
+        return Optional.of(metaLine.split(":")[1].trim());
+      } else {
+        LOG.info(String.format("Couldn't getValue from line: %s", metaLine));
+        return Optional.absent();
+      }
+    }
+
+    Optional<Integer> fromString(Optional<String> string) {
+      if (string.isPresent()) {
+        try {
+          return Optional.of(Integer.parseInt(string.get().replaceAll(",", "")));
+        } catch (NumberFormatException e) {
+          LOG.warning(String.format("Misformatted number: %s", string));
+        }
+      }
+
+      return Optional.absent();
+    }
+
+    Optional<Jffnet.Rating> getRating() {
+      Optional<String> ratingString = getValue(findStringByPrefix("Rated"));
+
+      if (!ratingString.isPresent()) {
+        return Optional.absent();
+      }
+
+      return Optional.fromNullable(RATINGS_MAP.get(ratingString));
+    }
+
+    Optional<Integer> getNumChapters() {
+      return getIntegerOptionalForPrefix("Chapters");
+    }
+
+    Optional<Integer> getNumWords() {
+      return getIntegerOptionalForPrefix("Words");
+    }
+
+    Optional<Integer> getNumReviews() {
+      return getIntegerOptionalForPrefix("Reviews");
+    }
+
+    Optional<Integer> getNumFavs() {
+      return getIntegerOptionalForPrefix("Favs");
+    }
+
+    Optional<Integer> getNumFollows() {
+      return getIntegerOptionalForPrefix("Follows");
+    }
+
+    Optional<String> getUpdated() {
+      return getValue(findStringByPrefix("Updated"));
+    }
+
+    Optional<String> getPublished() {
+      return getValue(findStringByPrefix("Published"));
+    }
+
+    private Optional<Integer> getIntegerOptionalForPrefix(String chapters) {
+      return fromString(getValue(findStringByPrefix(chapters)));
+    }
+
+    Optional<String> getLanguage() {
+      if (nonKvpLines.size() > 0) {
+        return Optional.of(nonKvpLines.get(0));
+      } else {
+        return Optional.absent();
+      }
+    }
+
+    Optional<String> getGenre() {
+      // Here goes the assumption that if Genre OR pairing is omitted,
+      // Genre is more likely to be present. I know, it sucks.
+
+      if (nonKvpLines.size() > 1) {
+        return Optional.of(nonKvpLines.get(1));
+      } else {
+        return Optional.absent();
+      }
+    }
+
+    Optional<String> getPairing() {
+      if (nonKvpLines.size() > 2) {
+        return Optional.of(nonKvpLines.get(2));
+      } else {
+        return Optional.absent();
+      }
+    }
+  }
+
+   /*
+
+
+Rated: Fiction M
+ English
+ Chapters: 31
+ Words: 246,320
+ Reviews: 5,293
+ Favs: 9,410
+ Follows: 2,804
+ Updated: 4/7/2008
+ Published: 2/18/2007
+ Status: Complete
+ id: 3401052
+
+   */
 
   static final Function<String, String> STRING_TRIM_FUNCTION = new Function<String, String>() {
     @Override
@@ -105,54 +252,66 @@ public class FFNetStoryExtractor {
   @VisibleForTesting void parseStoryMeta(String meta, Jffnet.StoryInfo.Builder builder) {
     String[] values = meta.split("-");
 
-    for (Map.Entry<String, Jffnet.Rating> entry : RATINGS_MAP.entrySet()) {
-      if (values[INDEX_RATING].contains(entry.getKey())) {
-        builder.setRating(entry.getValue());
-      }
+    MetaParser metaParser = new MetaParser(values);
+
+    if (metaParser.getRating().isPresent()) {
+      builder.setRating(metaParser.getRating().get());
+    } else {
+      LOG.info("No rating info found for this story: " + meta);
     }
 
-    builder.setLanguage(values[INDEX_LANGUAGE].trim());
+    if (metaParser.getLanguage().isPresent()) {
+      builder.setLanguage(metaParser.getLanguage().get());
+    } else {
+      LOG.info("No Language found for this story: " + meta);
+    }
 
-    builder.addAllGenre(Iterables.transform(
-        Splitter.on('/').split(values[INDEX_GENRE]),
-        STRING_TRIM_FUNCTION
-    ));
+    if (metaParser.getGenre().isPresent()) {
+      builder.addAllGenre(Splitter.on('/').split(metaParser.getGenre().get()));
+    } else {
+      LOG.info("No Genre found for this story: " + meta);
+    }
 
-    builder.addAllCharacter(Iterables.transform(
-        Splitter.on(',').split(values[INDEX_CHARACTER]),
-        STRING_TRIM_FUNCTION
-    ));
-
-    builder.setReviews(extractNumericValue(values, INDEX_REVIEWS));
-    builder.setFavs(extractNumericValue(values, INDEX_FAVS));
-
-    builder.setStatus(Jffnet.Status.WIP);
+//    builder.addAllGenre(Iterables.transform(
+//        Splitter.on('/').split(values[INDEX_GENRE]),
+//        STRING_TRIM_FUNCTION
+//    ));
+//
+//    builder.addAllCharacter(Iterables.transform(
+//        Splitter.on(',').split(values[INDEX_CHARACTER]),
+//        STRING_TRIM_FUNCTION
+//    ));
+//
+//    builder.setReviews(extractNumericValue(values, INDEX_REVIEWS));
+//    builder.setFavs(extractNumericValue(values, INDEX_FAVS));
+//
+//    builder.setStatus(Jffnet.Status.WIP);
 
     // parsing remaining values, which may not be all present
-    for (int i = INDEX_FAVS + 1; i < values.length; ++i) {
-      String value = values[i].toLowerCase().trim();
-      if (value.startsWith("updated")) {
-        try {
-          LocalDate dateTime = getDateTime(value);
-          if (dateTime.getYear() > 1991) {
-            builder.setUpdatedDate(dateTime.toDateTimeAtStartOfDay(DateTimeZone.UTC).getMillis());
-          }
-        } catch (Throwable e) {
-          LOG.log(Level.WARNING, "Problem parsing updated date <" + value + ">", e);
-        }
-      } else if (value.startsWith("published")) {
-        try {
-          LocalDate dateTime = getDateTime(value);
-          if (dateTime.getYear() > 1991) {
-            builder.setPublishedDate(dateTime.toDateTimeAtStartOfDay(DateTimeZone.UTC).getMillis());
-          }
-        } catch (Throwable e) {
-          LOG.log(Level.WARNING, "Problem parsing published date <" + value + ">", e);
-        }
-      } else if (value.toLowerCase().contains("complete")) {
-        builder.setStatus(Jffnet.Status.COMPLETED);
-      }
-    }
+//    for (int i = INDEX_FAVS + 1; i < values.length; ++i) {
+//      String value = values[i].toLowerCase().trim();
+//      if (value.startsWith("updated")) {
+//        try {
+//          LocalDate dateTime = getDateTime(value);
+//          if (dateTime.getYear() > 1991) {
+//            builder.setUpdatedDate(dateTime.toDateTimeAtStartOfDay(DateTimeZone.UTC).getMillis());
+//          }
+//        } catch (Throwable e) {
+//          LOG.log(Level.WARNING, "Problem parsing updated date <" + value + ">", e);
+//        }
+//      } else if (value.startsWith("published")) {
+//        try {
+//          LocalDate dateTime = getDateTime(value);
+//          if (dateTime.getYear() > 1991) {
+//            builder.setPublishedDate(dateTime.toDateTimeAtStartOfDay(DateTimeZone.UTC).getMillis());
+//          }
+//        } catch (Throwable e) {
+//          LOG.log(Level.WARNING, "Problem parsing published date <" + value + ">", e);
+//        }
+//      } else if (value.toLowerCase().contains("complete")) {
+//        builder.setStatus(Jffnet.Status.COMPLETED);
+//      }
+//    }
   }
 
   @VisibleForTesting static LocalDate parseDate(String str) {
@@ -171,7 +330,7 @@ public class FFNetStoryExtractor {
   }
 
   @VisibleForTesting int extractNumericValue(String[] values, int idx) {
-    return Integer.parseInt(values[idx].split(":")[1].replace(",", "").trim());
+    return Integer.parseInt(values[idx].trim().split(":")[1].replace(",", "").trim());
   }
 
   @VisibleForTesting public Jffnet.StoryInfo extractStoryMetadata(String story) throws IOException {
